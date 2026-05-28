@@ -3,23 +3,31 @@ import requests
 
 class YandexDiskClient:
     BASE_URL = "https://cloud-api.yandex.net/v1/disk"
+    APP_ROOT = "app:/"
 
     def __init__(self, token: str, timeout: float = 10.0) -> None:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"OAuth {token}"})
 
+    def _app_path(self, path: str) -> str:
+        if path == self.APP_ROOT or path.startswith(self.APP_ROOT):
+            return path
+        if path.startswith("/") or ":" in path:
+            raise ValueError("Клиент работает только с ресурсами внутри app:/.")
+        return f"{self.APP_ROOT}{path}"
+
     def create_folder(self, path: str) -> requests.Response:
         return self.session.put(
             f"{self.BASE_URL}/resources",
-            params={"path": path},
+            params={"path": self._app_path(path)},
             timeout=self.timeout,
         )
 
     def get_resource(self, path: str) -> requests.Response:
         return self.session.get(
             f"{self.BASE_URL}/resources",
-            params={"path": path},
+            params={"path": self._app_path(path)},
             timeout=self.timeout,
         )
 
@@ -34,8 +42,8 @@ class YandexDiskClient:
         return self.session.post(
             f"{self.BASE_URL}/resources/move",
             params={
-                "from": source_path,
-                "path": destination_path,
+                "from": self._app_path(source_path),
+                "path": self._app_path(destination_path),
                 "overwrite": str(overwrite).lower(),
                 "force_async": str(force_async).lower(),
             },
@@ -45,7 +53,7 @@ class YandexDiskClient:
     def delete_resource(self, path: str) -> requests.Response:
         return self.session.delete(
             f"{self.BASE_URL}/resources",
-            params={"path": path},
+            params={"path": self._app_path(path)},
             timeout=self.timeout,
         )
 
